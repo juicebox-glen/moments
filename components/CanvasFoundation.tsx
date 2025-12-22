@@ -52,14 +52,18 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
   const currentPositionYRef = useRef(DEFAULT_POSITION_Y);
   const throttleRef = useRef<number>(0);
   const isZoomingRef = useRef(false);
+  const isPanningRef = useRef(false); // Track when we're panning to prevent scale drift
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const hasHydratedRef = useRef(false);
+  const panningEndTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined); // Track timeout to clear it when new pan starts
 
-  // For UI display - only update when actually needed
+  // For UI display (toolbar) - only update when actually needed (throttled)
+  // This state is used to trigger re-renders for the toolbar, even though the toolbar reads from refs
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentScale, setCurrentScale] = useState(DEFAULT_SCALE);
-  // Position state for reactive grid background updates (throttled)
-  const [currentPositionX, setCurrentPositionX] = useState(DEFAULT_POSITION_X);
-  const [currentPositionY, setCurrentPositionY] = useState(DEFAULT_POSITION_Y);
+  
+  // Separate state for grid background scale (position is static, transform handles movement)
+  const [gridScale, setGridScale] = useState(DEFAULT_SCALE);
 
   // Load from localStorage after hydration
   useEffect(() => {
@@ -78,8 +82,7 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
 
     // Update state
     setCurrentScale(savedScale);
-    setCurrentPositionX(savedPositionX);
-    setCurrentPositionY(savedPositionY);
+    setGridScale(savedScale);
 
     // Update TransformWrapper to saved position
     if (transformRef.current) {
@@ -136,18 +139,23 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
       // Update refs immediately
       currentPositionXRef.current = newX;
       currentPositionYRef.current = newY;
+      // IMPORTANT: Keep scale ref in sync to prevent zoom drift
+      currentScaleRef.current = currentScale;
 
-      // Update state for grid background (throttled)
-      const now = Date.now();
-      if (now - throttleRef.current > 16) { // ~60fps
-        throttleRef.current = now;
-        setCurrentPositionX(newX);
-        setCurrentPositionY(newY);
-      }
+      // Update grid scale (position is static, transform handles movement)
+      setGridScale(currentScale);
 
       // Apply transform (no animation for smooth panning)
+      // CRITICAL: Explicitly preserve scale to prevent zoom changes during pan
       if (transformRef.current) {
+        // Force scale to be exactly what we expect (prevent any drift)
         transformRef.current.setTransform(newX, newY, currentScale, 0);
+        // Immediately verify and correct if needed (defensive)
+        const actualState = transformRef.current.state;
+        if (actualState && Math.abs(actualState.scale - currentScale) > 0.001) {
+          // Scale still drifted, force it again
+          transformRef.current.setTransform(newX, newY, currentScale, 0);
+        }
       }
 
       // Notify parent of transform changes
@@ -160,6 +168,8 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
         isUpdating = false;
         // Save state after panning stops
         saveViewportState();
+        // Mark panning as complete
+        handleWheelEnd();
       }
     };
 
@@ -169,6 +179,14 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
       if (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Clear any existing panning end timeout to prevent interference
+        if (panningEndTimeoutRef.current) {
+          clearTimeout(panningEndTimeoutRef.current);
+          panningEndTimeoutRef.current = undefined;
+        }
+        // Mark as panning to prevent scale changes
+        isPanningRef.current = true;
 
         // Accumulate deltas for smooth batching
         pendingDeltaX += e.deltaX;
@@ -182,14 +200,49 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
       }
     };
 
+    const handleWheelEnd = () => {
+      // Clear any existing timeout to prevent interference
+      if (panningEndTimeoutRef.current) {
+        clearTimeout(panningEndTimeoutRef.current);
+        panningEndTimeoutRef.current = undefined;
+      }
+      // Small delay to ensure all pan operations complete
+      panningEndTimeoutRef.current = setTimeout(() => {
+        isPanningRef.current = false;
+        panningEndTimeoutRef.current = undefined;
+      }, 100);
+    };
+
     // Add wheel listener to the canvas container
     const container = document.querySelector('[data-canvas-container]') as HTMLElement;
     if (container) {
       container.addEventListener('wheel', handleWheel, { passive: false });
+      // Also listen for mouseup to detect when panning ends (for mouse drag panning)
+      const handleMouseUp = () => {
+        if (isPanningRef.current) {
+          // Clear any existing timeout to prevent interference
+          if (panningEndTimeoutRef.current) {
+            clearTimeout(panningEndTimeoutRef.current);
+            panningEndTimeoutRef.current = undefined;
+          }
+          // Small delay to ensure all pan operations complete
+          panningEndTimeoutRef.current = setTimeout(() => {
+            isPanningRef.current = false;
+            panningEndTimeoutRef.current = undefined;
+          }, 100);
+        }
+      };
+      window.addEventListener('mouseup', handleMouseUp);
       return () => {
         container.removeEventListener('wheel', handleWheel);
+        window.removeEventListener('mouseup', handleMouseUp);
         if (rafId !== null) {
           cancelAnimationFrame(rafId);
+        }
+        // Clear any pending panning end timeout on cleanup
+        if (panningEndTimeoutRef.current) {
+          clearTimeout(panningEndTimeoutRef.current);
+          panningEndTimeoutRef.current = undefined;
         }
       };
     }
@@ -220,28 +273,74 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
           velocityDisabled: true 
         }}
         doubleClick={{ disabled: true }}
+        onPanningStart={() => {
+          // Clear any existing panning end timeout to prevent interference
+          if (panningEndTimeoutRef.current) {
+            clearTimeout(panningEndTimeoutRef.current);
+            panningEndTimeoutRef.current = undefined;
+          }
+          // Track when library's panning starts (mouse drag)
+          isPanningRef.current = true;
+        }}
+        onPanningStop={() => {
+          // Clear any existing timeout to prevent interference
+          if (panningEndTimeoutRef.current) {
+            clearTimeout(panningEndTimeoutRef.current);
+            panningEndTimeoutRef.current = undefined;
+          }
+          // Mark panning as complete after a short delay
+          panningEndTimeoutRef.current = setTimeout(() => {
+            isPanningRef.current = false;
+            panningEndTimeoutRef.current = undefined;
+          }, 100);
+        }}
         onTransformed={(ref) => {
-          // ALWAYS update refs immediately (no throttling) for accurate calculations and display
-          currentScaleRef.current = ref.state.scale;
+          // CRITICAL: During panning, lock scale to prevent zoom drift
+          let scaleToUse = ref.state.scale;
+          if (isPanningRef.current && !isZoomingRef.current) {
+            const expectedScale = currentScaleRef.current;
+            // If scale changed during panning, force it back immediately
+            if (Math.abs(ref.state.scale - expectedScale) > 0.001) {
+              // Scale drifted - correct it immediately by calling setTransform with locked scale
+              if (transformRef.current) {
+                transformRef.current.setTransform(
+                  ref.state.positionX,
+                  ref.state.positionY,
+                  expectedScale,
+                  0
+                );
+                // Use expected scale for this update cycle
+                scaleToUse = expectedScale;
+              }
+            }
+          }
+
+          // ALWAYS update refs immediately (even when correcting scale drift)
+          currentScaleRef.current = scaleToUse;
           currentPositionXRef.current = ref.state.positionX;
           currentPositionYRef.current = ref.state.positionY;
+
+          // Update grid scale
+          setGridScale(scaleToUse);
+
+          // Grid background is static (0,0) - transform handles movement
+          // Just update scale for grid sizing
+          // No need to update gridPosition since backgroundPosition is static
 
           // Save viewport state to localStorage (debounced)
           saveViewportState();
 
-          // Notify parent of transform changes
-          onTransformChange?.(ref.state.scale, ref.state.positionX, ref.state.positionY);
+          // ALWAYS notify parent of transform changes (even when correcting scale drift)
+          onTransformChange?.(currentScaleRef.current, currentPositionXRef.current, currentPositionYRef.current);
 
           // Skip state updates during programmatic zoom animations to avoid mid-animation percentages
           if (isZoomingRef.current) return;
 
-          // Throttle state updates to reduce re-renders (only affects UI display and grid background)
+          // Update scale for UI display (throttled) - triggers toolbar re-render
           const now = Date.now();
           if (now - throttleRef.current > 100) {
             throttleRef.current = now;
-            setCurrentScale(ref.state.scale);
-            setCurrentPositionX(ref.state.positionX);
-            setCurrentPositionY(ref.state.positionY);
+            setCurrentScale(currentScaleRef.current);
           }
         }}
       >
@@ -289,6 +388,8 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
 
             // Immediately set display scale so toolbar shows target value
             setCurrentScale(targetScale);
+            // Update grid scale (position is static)
+            setGridScale(targetScale);
 
             if (duration > 0) {
               // Ensure we end on the exact target scale/position after animation
@@ -297,6 +398,7 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
                 currentPositionXRef.current = newPositionX;
                 currentPositionYRef.current = newPositionY;
                 setCurrentScale(targetScale);
+                setGridScale(targetScale);
                 isZoomingRef.current = false;
               }, duration + 30);
             } else {
@@ -317,12 +419,41 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
           };
 
           const handleResetZoom = () => {
-            // Reset to 100% zoom and initial position
-            currentScaleRef.current = 1.0;
-            currentPositionXRef.current = DEFAULT_POSITION_X;
-            currentPositionYRef.current = DEFAULT_POSITION_Y;
-            setTransform(DEFAULT_POSITION_X, DEFAULT_POSITION_Y, 1.0, 200, 'easeOut');
-            setCurrentScale(1.0);
+            // Reset to 100% zoom centered on current viewport (same as zoom in/out)
+            const viewportCenterX = window.innerWidth / 2;
+            const viewportCenterY = window.innerHeight / 2;
+
+            // Keep the canvas point currently at the viewport center fixed while scaling
+            const canvasCenterX = (viewportCenterX - currentPositionXRef.current) / currentScaleRef.current;
+            const canvasCenterY = (viewportCenterY - currentPositionYRef.current) / currentScaleRef.current;
+
+            const targetScale = 1.0;
+            const newPositionX = viewportCenterX - (canvasCenterX * targetScale);
+            const newPositionY = viewportCenterY - (canvasCenterY * targetScale);
+
+            currentScaleRef.current = targetScale;
+            currentPositionXRef.current = newPositionX;
+            currentPositionYRef.current = newPositionY;
+
+            // Mark as animating to avoid mid-animation state overrides
+            isZoomingRef.current = true;
+
+            // Apply transform with animation
+            setTransform(newPositionX, newPositionY, targetScale, 200, 'easeOut');
+
+            // Immediately set display scale so toolbar shows target value
+            setCurrentScale(targetScale);
+            setGridScale(targetScale);
+
+            // Ensure we end on the exact target scale/position after animation
+            setTimeout(() => {
+              currentScaleRef.current = targetScale;
+              currentPositionXRef.current = newPositionX;
+              currentPositionYRef.current = newPositionY;
+              setCurrentScale(targetScale);
+              setGridScale(targetScale);
+              isZoomingRef.current = false;
+            }, 230);
           };
 
           return (
@@ -486,8 +617,8 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
                       linear-gradient(to right, rgba(221, 181, 181, 0.4) 1px, transparent 1px),
                       linear-gradient(to bottom, rgba(221, 181, 181, 0.4) 1px, transparent 1px)
                     `,
-                    backgroundSize: `${40 * currentScale}px ${40 * currentScale}px`,
-                    backgroundPosition: `${currentPositionX}px ${currentPositionY}px`
+                    backgroundSize: `${40 * gridScale}px ${40 * gridScale}px`,
+                    backgroundPosition: '0 0'
                   }}
                 >
 
