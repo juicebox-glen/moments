@@ -115,6 +115,36 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
     []
   );
 
+  // Handle resize (with center-based animation)
+  const handleResize = useCallback(
+    (id: string, width: number, height: number) => {
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id === id) {
+            // Calculate current center point
+            const centerX = item.x + item.width / 2;
+            const centerY = item.y + item.height / 2;
+            
+            // Recalculate position to keep center fixed
+            const newX = centerX - width / 2;
+            const newY = centerY - height / 2;
+            
+            return {
+              ...item,
+              x: newX,
+              y: newY,
+              width,
+              height,
+              updatedAt: new Date(),
+            };
+          }
+          return item;
+        })
+      );
+    },
+    []
+  );
+
   // Get selected item
   const selectedItem = items.find((item) => item.id === selectedId) || null;
 
@@ -130,6 +160,7 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
     handleCanvasClick,
     addItem,
     updateItem,
+    handleResize,
   };
 }
 

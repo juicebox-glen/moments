@@ -3,6 +3,7 @@
 import React from 'react';
 import CanvasFoundation from './CanvasFoundation';
 import DraggableItem from './DraggableItem';
+import CanvasControlDock from './CanvasControlDock';
 import { useCanvasItems } from '@/hooks/useCanvasItems';
 import { CanvasItem } from '@/lib/canvas-item-types';
 
@@ -24,6 +25,7 @@ export default function CanvasWithItems({
     handleRotate,
     handleSelect,
     handleDelete,
+    handleResize,
     handleCanvasClick,
     addItem,
   } = useCanvasItems(initialItems);
@@ -56,6 +58,29 @@ export default function CanvasWithItems({
     onAddItem?.(addItem, getViewportCenter);
   }, [addItem, getViewportCenter, onAddItem]);
 
+  // Get selected items for control dock
+  const selectedItems = React.useMemo(() => {
+    if (!selectedId) return [];
+    return items.filter((item) => item.id === selectedId);
+  }, [selectedId, items]);
+
+  // Handle resize for selected item
+  const handleDockResize = React.useCallback(
+    (width: number, height: number) => {
+      if (selectedId) {
+        handleResize(selectedId, width, height);
+      }
+    },
+    [selectedId, handleResize]
+  );
+
+  // Handle delete for selected item(s)
+  const handleDockDelete = React.useCallback(() => {
+    if (selectedId) {
+      handleDelete(selectedId);
+    }
+  }, [selectedId, handleDelete]);
+
   // Handle keyboard delete
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -70,15 +95,16 @@ export default function CanvasWithItems({
   }, [selectedId, handleDelete]);
 
   return (
-    <CanvasFoundation 
-      onCanvasClick={handleCanvasClick}
-      onTransformChange={(scale, positionX, positionY) => {
-        setCanvasTransform({ scale, positionX, positionY });
-      }}
-    >
-      {({ scale }: { scale: number; positionX: number; positionY: number }) => (
-        <>
-          {items.map((item) => (
+    <>
+      <CanvasFoundation 
+        onCanvasClick={handleCanvasClick}
+        onTransformChange={(scale, positionX, positionY) => {
+          setCanvasTransform({ scale, positionX, positionY });
+        }}
+      >
+        {({ scale }: { scale: number; positionX: number; positionY: number }) => (
+          <>
+            {items.map((item) => (
             <DraggableItem
               key={item.id}
               item={item}
@@ -89,9 +115,18 @@ export default function CanvasWithItems({
               selectedIds={selectedId ? [selectedId] : []}
               scale={scale}
             />
-          ))}
-        </>
-      )}
-    </CanvasFoundation>
+            ))}
+          </>
+        )}
+      </CanvasFoundation>
+      
+      {/* Fixed Control Dock */}
+      <CanvasControlDock
+        selectedItems={selectedItems}
+        onSizeChange={handleDockResize}
+        onDelete={handleDockDelete}
+        isVisible={selectedItems.length > 0}
+      />
+    </>
   );
 }

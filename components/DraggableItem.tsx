@@ -291,9 +291,9 @@ function DraggableItem({
     boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
   }
 
-  // Outline for selected items
+  // Outline for selected items (polished)
   const outline = isSelected || isActive
-    ? '2px solid rgba(59, 130, 246, 0.5)'
+    ? '2px solid rgba(59, 130, 246, 0.6)'
     : 'none';
   const outlineOffset = isSelected || isActive ? '2px' : '0';
 
@@ -301,10 +301,10 @@ function DraggableItem({
   const selectedId = selectedIds.length > 0 ? selectedIds[0] : null;
   const opacity = selectedId === null || selectedId === item.id ? 1.0 : 0.6;
 
-  // Transitions
+  // Transitions (polished with smooth resize animation)
   const transition = isActive
     ? 'none'
-    : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, outline 0.15s ease';
+    : 'transform 0.15s ease-out, box-shadow 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width 0.15s ease-out, height 0.15s ease-out';
 
   return (
     <div
