@@ -282,13 +282,27 @@ function DraggableItem({
 
   const transform = `${baseTransform} translateY(${translateY}px) scale(${hoverScale})`;
 
-  // Box shadow calculations
-  let boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; // Default
+  // Shadow calculations - use drop-shadow for photos (respects transparency), box-shadow for others
+  const isPhoto = item.type === 'photo';
+  let boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; // Default for non-photos
+  let dropShadow = ''; // For photos with transparency
 
-  if (isHoveringUnselected) {
-    boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-  } else if (isSelectedNotHovering || isSelectedAndHovering || isActive) {
-    boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+  if (isPhoto) {
+    // Use drop-shadow for photos - respects transparency and creates organic shadow
+    if (isHoveringUnselected) {
+      dropShadow = 'drop-shadow(0 2px 8px rgba(0,0,0,0.15)) drop-shadow(0 4px 12px rgba(0,0,0,0.1))';
+    } else if (isSelectedNotHovering || isSelectedAndHovering || isActive) {
+      dropShadow = 'drop-shadow(0 3px 10px rgba(0,0,0,0.2)) drop-shadow(0 6px 16px rgba(0,0,0,0.15))';
+    } else {
+      dropShadow = 'drop-shadow(0 2px 6px rgba(0,0,0,0.12)) drop-shadow(0 4px 10px rgba(0,0,0,0.08))';
+    }
+  } else {
+    // Use box-shadow for non-photos (rectangles, etc.)
+    if (isHoveringUnselected) {
+      boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+    } else if (isSelectedNotHovering || isSelectedAndHovering || isActive) {
+      boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+    }
   }
 
   // Outline for selected items (polished)
@@ -304,27 +318,28 @@ function DraggableItem({
   // Transitions (polished with smooth resize animation)
   const transition = isActive
     ? 'none'
-    : 'transform 0.15s ease-out, box-shadow 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width 0.15s ease-out, height 0.15s ease-out';
+    : `transform 0.15s ease-out, ${isPhoto ? 'filter' : 'box-shadow'} 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width 0.15s ease-out, height 0.15s ease-out`;
 
   return (
     <div
-      ref={itemRef}
-      style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: `${item.width}px`,
-        height: `${item.height}px`,
-        transform,
-        transformOrigin: 'center center',
-        cursor,
-        zIndex: item.zIndex,
-        transition,
-        boxShadow,
-        outline,
-        outlineOffset,
-        opacity,
-      }}
+        ref={itemRef}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: `${item.width}px`,
+          height: `${item.height}px`,
+          transform,
+          transformOrigin: 'center center',
+          cursor,
+          zIndex: item.zIndex,
+          transition,
+          boxShadow: isPhoto ? 'none' : boxShadow, // No box-shadow for photos
+          filter: isPhoto ? dropShadow : 'none', // Use drop-shadow for photos
+          outline,
+          outlineOffset,
+          opacity,
+        }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => {
@@ -342,9 +357,10 @@ function DraggableItem({
         style={{
           width: '100%',
           height: '100%',
-          borderRadius: '4px',
+          borderRadius: item.type === 'photo' ? '8px' : '4px',
           overflow: 'hidden',
           pointerEvents: 'none', // Prevent content from interfering with drag
+          backgroundColor: item.type === 'photo' ? 'transparent' : 'transparent', // Transparent for PNG support
         }}
       >
         {item.type === 'color' && (
@@ -365,6 +381,7 @@ function DraggableItem({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
+              display: 'block',
             }}
           />
         )}

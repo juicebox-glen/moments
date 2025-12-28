@@ -60,7 +60,14 @@ export default function CanvasControlDock({
   // Determine which preset is active (closest match) - only for single select
   const getActivePreset = () => {
     if (isMultiSelect) return null;
-    const currentSize = Math.max(selectedItem.width, selectedItem.height);
+    
+    // For photos, we scale based on width, so compare width
+    // For non-photos (squares), use max of width/height
+    const currentSize = 
+      selectedItem.type === 'photo' 
+        ? selectedItem.width 
+        : Math.max(selectedItem.width, selectedItem.height);
+    
     if (currentSize <= 250) return 'S';
     if (currentSize <= 350) return 'M';
     return 'L';
@@ -90,8 +97,17 @@ export default function CanvasControlDock({
 
   const handleSizeClick = (preset: 'S' | 'M' | 'L') => {
     if (isMultiSelect) return; // Disable resize for multi-select
-    const { width, height } = SIZE_PRESETS[preset];
-    onSizeChange(width, height);
+    
+    // For photos, preserve aspect ratio by scaling width only
+    if (selectedItem.type === 'photo' && selectedItem.aspectRatio) {
+      const targetWidth = SIZE_PRESETS[preset].width;
+      const targetHeight = targetWidth / selectedItem.aspectRatio;
+      onSizeChange(targetWidth, targetHeight);
+    } else {
+      // For non-photos (rectangles, etc.), use fixed dimensions
+      const { width, height } = SIZE_PRESETS[preset];
+      onSizeChange(width, height);
+    }
   };
 
   return (

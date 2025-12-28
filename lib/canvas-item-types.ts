@@ -16,6 +16,7 @@ export interface CanvasItem {
   color?: string; // For color blocks
   content?: string; // For notes
   imageUrl?: string; // For photos
+  aspectRatio?: number; // For photos: width/height ratio (preserved during resize)
   // Metadata
   createdAt: Date;
   updatedAt: Date;

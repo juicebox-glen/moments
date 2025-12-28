@@ -171,6 +171,66 @@ export default function ChapterPage() {
     });
   };
 
+  // Handle adding photos
+  const handleAddPhoto = (files: File[]) => {
+    if (!files || files.length === 0 || !addItemRef.current || !getViewportCenterRef.current) return;
+
+    // Process each file
+    files.forEach((file) => {
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (!dataUrl) return;
+
+        // Create an image to get dimensions
+        const img = new Image();
+        img.onload = () => {
+          // Calculate viewport center in canvas coordinates
+          const center = getViewportCenterRef.current!();
+          
+          // Calculate aspect ratio
+          const aspectRatio = img.width / img.height;
+          
+          // Always start at Small size (200px width)
+          const defaultWidth = 200;
+          const defaultHeight = defaultWidth / aspectRatio;
+          
+          // Scatter photos naturally around viewport center (±50-80px offset)
+          const offsetX = (Math.random() - 0.5) * 160; // -80 to +80
+          const offsetY = (Math.random() - 0.5) * 160; // -80 to +80
+          
+          // Add slight random rotation for playful scrapbook feel (-3° to +3°)
+          const rotation = (Math.random() - 0.5) * 6;
+          
+          // Add photo centered at scattered position
+          addItemRef.current!({
+            type: 'photo',
+            x: center.x + offsetX - defaultWidth / 2,
+            y: center.y + offsetY - defaultHeight / 2,
+            width: Math.round(defaultWidth),
+            height: Math.round(defaultHeight),
+            rotation,
+            imageUrl: dataUrl,
+            aspectRatio, // Store aspect ratio for resize operations
+          });
+        };
+        
+        img.onerror = () => {
+          console.error('Failed to load image:', file.name);
+        };
+        
+        img.src = dataUrl;
+      };
+      
+      reader.onerror = () => {
+        console.error('Failed to read file:', file.name);
+      };
+      
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -219,7 +279,7 @@ export default function ChapterPage() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <CanvasTopBar chapter={chapter} onAddRectangle={handleAddRectangle} />
+      <CanvasTopBar chapter={chapter} onAddRectangle={handleAddRectangle} onAddPhoto={handleAddPhoto} />
       <div className="flex-1 relative overflow-hidden">
         <CanvasWithItems
           initialItems={items}
