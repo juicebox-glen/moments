@@ -7,6 +7,8 @@ interface CanvasControlDockProps {
   selectedItems: CanvasItem[];
   onSizeChange: (width: number, height: number) => void;
   onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   isVisible: boolean;
 }
 
@@ -20,6 +22,8 @@ export default function CanvasControlDock({
   selectedItems,
   onSizeChange,
   onDelete,
+  onMoveUp,
+  onMoveDown,
   isVisible,
 }: CanvasControlDockProps) {
   const [shouldShow, setShouldShow] = useState(false);
@@ -61,11 +65,12 @@ export default function CanvasControlDock({
   const getActivePreset = () => {
     if (isMultiSelect) return null;
     
-    // Songs cannot be resized, so no active preset
-    if (selectedItem.type === 'song') return null;
+    // Songs and GIFs cannot be resized, so no active preset
+    // Emojis and stickers CAN be resized with S/M/L presets
+    if (selectedItem.type === 'song' || selectedItem.type === 'gif') return null;
     
     // For photos, we scale based on width, so compare width
-    // For non-photos (squares), use max of width/height
+    // For non-photos (squares, emojis, stickers), use max of width/height
     const currentSize = 
       selectedItem.type === 'photo' 
         ? selectedItem.width 
@@ -95,6 +100,14 @@ export default function CanvasControlDock({
         return 'Rectangle';
       case 'song':
         return 'Song';
+      case 'gif':
+        return 'GIF';
+      case 'emoji':
+        return 'Emoji';
+      case 'sticker':
+        return 'Sticker';
+      case 'decoration':
+        return 'Decoration';
       default:
         return 'Item';
     }
@@ -103,8 +116,16 @@ export default function CanvasControlDock({
   const handleSizeClick = (preset: 'S' | 'M' | 'L') => {
     if (isMultiSelect) return; // Disable resize for multi-select
     
-    // Songs cannot be resized
-    if (selectedItem.type === 'song') return;
+    // Songs and GIFs cannot be resized
+    // Emojis, stickers, and decorations use square presets
+    if (selectedItem.type === 'song' || selectedItem.type === 'gif') return;
+    
+    // For emojis, stickers, and decorations, use square presets
+    if (selectedItem.type === 'emoji' || selectedItem.type === 'sticker' || selectedItem.type === 'decoration') {
+      const { width, height } = SIZE_PRESETS[preset];
+      onSizeChange(width, height);
+      return;
+    }
     
     // For photos, preserve aspect ratio by scaling width only
     if (selectedItem.type === 'photo' && selectedItem.aspectRatio) {
@@ -162,8 +183,9 @@ export default function CanvasControlDock({
           {getSelectionLabel()}
         </div>
 
-        {/* Size Preset Buttons (only for single select, and not for songs) */}
-        {!isMultiSelect && selectedItem.type !== 'song' &&
+        {/* Size Preset Buttons (only for single select, and not for songs or GIFs) */}
+        {/* Emojis and stickers CAN use size presets */}
+        {!isMultiSelect && selectedItem.type !== 'song' && selectedItem.type !== 'gif' &&
           (['S', 'M', 'L'] as const).map((preset) => {
             const isActive = activePreset === preset;
             return (
@@ -203,6 +225,98 @@ export default function CanvasControlDock({
               </button>
             );
           })}
+
+        {/* Layer Controls (Move Up/Down) - only for single select */}
+        {!isMultiSelect && (
+          <>
+            <div
+              style={{
+                width: '1px',
+                height: '24px',
+                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                margin: '0 8px',
+              }}
+            />
+            <button
+              onClick={onMoveUp}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+              title="Move Up (Bring Forward)"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8 4L12 8H9V12H7V8H4L8 4Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={onMoveDown}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+              title="Move Down (Send Backward)"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8 12L4 8H7V4H9V8H12L8 12Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          </>
+        )}
 
         {/* Delete Button */}
         <button

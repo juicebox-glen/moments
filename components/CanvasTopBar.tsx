@@ -9,9 +9,11 @@ interface CanvasTopBarProps {
   onAddRectangle?: () => void;
   onAddPhoto?: (files: File[]) => void;
   onAddSong?: () => void;
+  onAddGif?: () => void;
+  onAddDecoration?: () => void;
 }
 
-export default function CanvasTopBar({ chapter, onAddRectangle, onAddPhoto, onAddSong }: CanvasTopBarProps) {
+export default function CanvasTopBar({ chapter, onAddRectangle, onAddPhoto, onAddSong, onAddGif, onAddDecoration }: CanvasTopBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formattedDate = chapter.date
     ? new Date(chapter.date).toLocaleDateString('en-US', {
@@ -119,6 +121,46 @@ export default function CanvasTopBar({ chapter, onAddRectangle, onAddPhoto, onAd
                   />
                 </svg>
                 Add Song
+              </button>
+            )}
+            {onAddGif && (
+              <button
+                onClick={onAddGif}
+                className="px-6 py-2.5 bg-foreground text-background rounded-full font-medium text-sm hover:opacity-90 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 2H14V14H2V2ZM4 4V12H12V4H4ZM6 6H10V10H6V6Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Add Emoji/GIF
+              </button>
+            )}
+            {onAddDecoration && (
+              <button
+                onClick={onAddDecoration}
+                className="px-6 py-2.5 bg-foreground text-background rounded-full font-medium text-sm hover:opacity-90 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 2H14V14H2V2ZM4 4V12H12V4H4Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Add Decoration
               </button>
             )}
             {onAddRectangle && (

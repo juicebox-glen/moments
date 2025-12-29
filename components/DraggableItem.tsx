@@ -284,11 +284,28 @@ function DraggableItem({
   const transform = `${baseTransform} translateY(${translateY}px) scale(${hoverScale})`;
 
   // Shadow calculations - use drop-shadow for photos (respects transparency), box-shadow for others
+  // Emojis, stickers, and GIFs have no shadow/background
+  // Decorations get subtle shadow for depth
   const isPhoto = item.type === 'photo';
+  const isNoShadow = item.type === 'emoji' || item.type === 'sticker' || item.type === 'gif';
+  const isDecoration = item.type === 'decoration';
   let boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; // Default for non-photos
   let dropShadow = ''; // For photos with transparency
 
-  if (isPhoto) {
+  if (isNoShadow) {
+    // No shadow for emojis, stickers, and GIFs
+    boxShadow = 'none';
+    dropShadow = 'none';
+  } else if (isDecoration) {
+    // Subtle shadow for decorations (scrapbook layering effect)
+    if (isHoveringUnselected) {
+      boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+    } else if (isSelectedNotHovering || isSelectedAndHovering || isActive) {
+      boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    } else {
+      boxShadow = '0 2px 6px rgba(0,0,0,0.08)';
+    }
+  } else if (isPhoto) {
     // Use drop-shadow for photos - respects transparency and creates organic shadow
     if (isHoveringUnselected) {
       dropShadow = 'drop-shadow(0 2px 8px rgba(0,0,0,0.15)) drop-shadow(0 4px 12px rgba(0,0,0,0.1))';
@@ -335,8 +352,8 @@ function DraggableItem({
           cursor,
           zIndex: item.zIndex,
           transition,
-          boxShadow: isPhoto ? 'none' : boxShadow, // No box-shadow for photos
-          filter: isPhoto ? dropShadow : 'none', // Use drop-shadow for photos
+          boxShadow: isNoShadow ? 'none' : (isPhoto ? 'none' : boxShadow), // No box-shadow for photos, emojis, stickers, GIFs
+          filter: isNoShadow ? 'none' : (isPhoto ? dropShadow : 'none'), // Use drop-shadow for photos only
           outline,
           outlineOffset,
           opacity,
@@ -358,10 +375,10 @@ function DraggableItem({
         style={{
           width: '100%',
           height: '100%',
-          borderRadius: item.type === 'photo' ? '8px' : '4px',
+          borderRadius: item.type === 'photo' || item.type === 'gif' || item.type === 'sticker' || item.type === 'decoration' ? '8px' : '4px',
           overflow: 'hidden',
           pointerEvents: 'none', // Prevent content from interfering with drag
-          backgroundColor: item.type === 'photo' ? 'transparent' : 'transparent', // Transparent for PNG support
+          backgroundColor: item.type === 'photo' || item.type === 'gif' ? 'transparent' : 'transparent', // Transparent for PNG support
         }}
       >
         {item.type === 'color' && (
@@ -383,6 +400,63 @@ function DraggableItem({
               height: '100%',
               objectFit: 'cover',
               display: 'block',
+            }}
+          />
+        )}
+        {item.type === 'gif' && item.gifUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={item.gifUrl}
+            alt=""
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+        )}
+        {item.type === 'emoji' && item.emoji && (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: `${Math.min(item.width, item.height) * 0.7}px`,
+              lineHeight: 1,
+            }}
+          >
+            {item.emoji}
+          </div>
+        )}
+        {item.type === 'sticker' && item.stickerUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={item.stickerUrl}
+            alt=""
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+          />
+        )}
+        {item.type === 'decoration' && item.decorationFill && (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              backgroundColor: item.decorationFill.startsWith('data:') || item.decorationFill.startsWith('url(') 
+                ? undefined 
+                : item.decorationFill,
+              backgroundImage: item.decorationFill.startsWith('data:') || item.decorationFill.startsWith('url(')
+                ? `url(${item.decorationFill})`
+                : undefined,
+              backgroundSize: 'cover',
+              backgroundRepeat: 'repeat',
             }}
           />
         )}

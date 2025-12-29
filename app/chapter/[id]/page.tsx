@@ -6,6 +6,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import CanvasTopBar from '@/components/CanvasTopBar';
 import CanvasWithItems from '@/components/CanvasWithItems';
 import AddSongModal from '@/components/AddSongModal';
+import AddEmojiStickerGifModal from '@/components/AddEmojiStickerGifModal';
+import AddDecorationModal from '@/components/AddDecorationModal';
+import { type DecorationPreset } from '@/lib/decoration-presets';
 import Link from 'next/link';
 import { CanvasItem } from '@/lib/canvas-item-types';
 
@@ -43,6 +46,8 @@ export default function ChapterPage() {
   const hasLoadedRef = useRef(false);
   const isInitialLoadRef = useRef(true);
   const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
+  const [isAddEmojiStickerGifModalOpen, setIsAddEmojiStickerGifModalOpen] = useState(false);
+  const [isAddDecorationModalOpen, setIsAddDecorationModalOpen] = useState(false);
 
   // Storage key for this chapter's items
   const storageKey = `chapter-${id}-items`;
@@ -203,6 +208,96 @@ export default function ChapterPage() {
     });
   };
 
+  // Handle adding emojis
+  const handleAddEmoji = (emoji: string) => {
+    if (!addItemRef.current || !getViewportCenterRef.current) return;
+
+    const center = getViewportCenterRef.current!();
+    const offsetX = (Math.random() - 0.5) * 160;
+    const offsetY = (Math.random() - 0.5) * 160;
+    const rotation = (Math.random() - 0.5) * 6;
+    
+    // Default size for emojis
+    const defaultSize = 80;
+    
+    addItemRef.current!({
+      type: 'emoji',
+      x: center.x + offsetX - defaultSize / 2,
+      y: center.y + offsetY - defaultSize / 2,
+      width: defaultSize,
+      height: defaultSize,
+      rotation,
+      emoji,
+    });
+  };
+
+  // Handle adding stickers
+  const handleAddSticker = (stickerUrl: string, width: number, height: number) => {
+    if (!addItemRef.current || !getViewportCenterRef.current) return;
+
+    const center = getViewportCenterRef.current!();
+    const offsetX = (Math.random() - 0.5) * 160;
+    const offsetY = (Math.random() - 0.5) * 160;
+    const rotation = (Math.random() - 0.5) * 6;
+    
+    addItemRef.current!({
+      type: 'sticker',
+      x: center.x + offsetX - width / 2,
+      y: center.y + offsetY - height / 2,
+      width: Math.round(width),
+      height: Math.round(height),
+      rotation,
+      stickerUrl,
+    });
+  };
+
+  // Handle adding GIFs
+  const handleAddGif = (gifUrl: string, width: number, height: number) => {
+    if (!addItemRef.current || !getViewportCenterRef.current) return;
+
+    const center = getViewportCenterRef.current!();
+    const offsetX = (Math.random() - 0.5) * 160;
+    const offsetY = (Math.random() - 0.5) * 160;
+    const rotation = (Math.random() - 0.5) * 6;
+    
+    addItemRef.current!({
+      type: 'gif',
+      x: center.x + offsetX - width / 2,
+      y: center.y + offsetY - height / 2,
+      width: Math.round(width),
+      height: Math.round(height),
+      rotation,
+      gifUrl,
+    });
+  };
+
+  // Handle adding decorations
+  const handleAddDecoration = (preset: DecorationPreset) => {
+    if (!addItemRef.current || !getViewportCenterRef.current) return;
+
+    const center = getViewportCenterRef.current!();
+    const offsetX = (Math.random() - 0.5) * 160;
+    const offsetY = (Math.random() - 0.5) * 160;
+    
+    // Default size for decorations (400x300)
+    const defaultWidth = 400;
+    const defaultHeight = 300;
+    
+    // Slight random rotation (-2° to +2°)
+    const rotation = (Math.random() - 0.5) * 4;
+    
+    addItemRef.current!({
+      type: 'decoration',
+      x: center.x + offsetX - defaultWidth / 2,
+      y: center.y + offsetY - defaultHeight / 2,
+      width: defaultWidth,
+      height: defaultHeight,
+      rotation,
+      decorationPreset: preset.id,
+      decorationFill: preset.fill,
+    });
+  };
+
   // Handle adding photos
   const handleAddPhoto = (files: File[]) => {
     if (!files || files.length === 0 || !addItemRef.current || !getViewportCenterRef.current) return;
@@ -316,11 +411,25 @@ export default function ChapterPage() {
         onAddRectangle={handleAddRectangle} 
         onAddPhoto={handleAddPhoto}
         onAddSong={() => setIsAddSongModalOpen(true)}
+        onAddGif={() => setIsAddEmojiStickerGifModalOpen(true)}
+        onAddDecoration={() => setIsAddDecorationModalOpen(true)}
       />
       <AddSongModal
         isOpen={isAddSongModalOpen}
         onClose={() => setIsAddSongModalOpen(false)}
         onAdd={handleAddSong}
+      />
+      <AddEmojiStickerGifModal
+        isOpen={isAddEmojiStickerGifModalOpen}
+        onClose={() => setIsAddEmojiStickerGifModalOpen(false)}
+        onAddEmoji={handleAddEmoji}
+        onAddSticker={handleAddSticker}
+        onAddGif={handleAddGif}
+      />
+      <AddDecorationModal
+        isOpen={isAddDecorationModalOpen}
+        onClose={() => setIsAddDecorationModalOpen(false)}
+        onAdd={handleAddDecoration}
       />
       <div className="flex-1 relative overflow-hidden">
         <CanvasWithItems

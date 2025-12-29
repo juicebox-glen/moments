@@ -5,7 +5,7 @@
 
 export interface CanvasItem {
   id: string;
-  type: 'photo' | 'note' | 'memento' | 'color' | 'song';
+  type: 'photo' | 'note' | 'memento' | 'color' | 'song' | 'gif' | 'emoji' | 'sticker' | 'decoration';
   x: number; // Canvas coordinates (absolute)
   y: number; // Canvas coordinates (absolute)
   width: number;
@@ -18,6 +18,11 @@ export interface CanvasItem {
   imageUrl?: string; // For photos
   aspectRatio?: number; // For photos: width/height ratio (preserved during resize)
   spotifyTrackId?: string; // For songs: Spotify track ID
+  gifUrl?: string; // For GIFs: Giphy GIF URL
+  emoji?: string; // For emojis: emoji character
+  stickerUrl?: string; // For stickers: Giphy sticker URL
+  decorationPreset?: string; // For decorations: preset ID
+  decorationFill?: string; // For decorations: CSS fill (color, pattern, texture)
   // Metadata
   createdAt: Date;
   updatedAt: Date;

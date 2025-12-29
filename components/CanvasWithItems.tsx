@@ -26,6 +26,8 @@ export default function CanvasWithItems({
     handleSelect,
     handleDelete,
     handleResize,
+    handleMoveUp,
+    handleMoveDown,
     handleCanvasClick,
     addItem,
   } = useCanvasItems(initialItems);
@@ -81,6 +83,19 @@ export default function CanvasWithItems({
     }
   }, [selectedId, handleDelete]);
 
+  // Handle move up/down for selected item
+  const handleDockMoveUp = React.useCallback(() => {
+    if (selectedId) {
+      handleMoveUp(selectedId);
+    }
+  }, [selectedId, handleMoveUp]);
+
+  const handleDockMoveDown = React.useCallback(() => {
+    if (selectedId) {
+      handleMoveDown(selectedId);
+    }
+  }, [selectedId, handleMoveDown]);
+
   // Handle keyboard delete
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -125,6 +140,8 @@ export default function CanvasWithItems({
         selectedItems={selectedItems}
         onSizeChange={handleDockResize}
         onDelete={handleDockDelete}
+        onMoveUp={handleDockMoveUp}
+        onMoveDown={handleDockMoveDown}
         isVisible={selectedItems.length > 0}
       />
     </>

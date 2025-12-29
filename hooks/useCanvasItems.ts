@@ -24,6 +24,16 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
     return Math.max(...items.map((item) => item.zIndex)) + 1;
   }, [items]);
 
+  // Get z-index for decorations (always behind other content)
+  const getDecorationZIndex = useCallback(() => {
+    // Get the minimum zIndex of non-decoration items, or 0 if none exist
+    const nonDecorationItems = items.filter(item => item.type !== 'decoration');
+    if (nonDecorationItems.length === 0) return 0;
+    const minZIndex = Math.min(...nonDecorationItems.map(item => item.zIndex));
+    // Return a zIndex that's lower than the minimum (behind everything)
+    return Math.max(0, minZIndex - 1);
+  }, [items]);
+
   // Handle drag
   const handleDrag = useCallback(
     (id: string, x: number, y: number) => {
@@ -86,10 +96,15 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
   // Add new item (automatically selects it)
   const addItem = useCallback(
     (item: Omit<CanvasItem, 'id' | 'zIndex' | 'createdAt' | 'updatedAt'>) => {
+      // Decorations always go behind other content
+      const zIndex = item.type === 'decoration' 
+        ? getDecorationZIndex() 
+        : getNextZIndex();
+      
       const newItem: CanvasItem = {
         ...item,
         id: getNextId(),
-        zIndex: getNextZIndex(),
+        zIndex,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -98,7 +113,7 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
       setSelectedId(newItem.id);
       return newItem.id;
     },
-    [getNextId, getNextZIndex]
+    [getNextId, getNextZIndex, getDecorationZIndex]
   );
 
   // Update item
@@ -145,6 +160,128 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
     []
   );
 
+  // Handle move up (bring forward in z-index)
+  const handleMoveUp = useCallback(
+    (id: string) => {
+      setItems((prev) => {
+        const item = prev.find((i) => i.id === id);
+        if (!item) return prev;
+
+        if (item.type === 'decoration') {
+          // For decorations: only swap with other decorations
+          const decorations = prev
+            .filter((i) => i.type === 'decoration')
+            .sort((a, b) => a.zIndex - b.zIndex);
+
+          const currentIndex = decorations.findIndex((i) => i.id === id);
+          if (currentIndex === -1 || currentIndex === decorations.length - 1) {
+            // Already at top of decorations or not found
+            return prev;
+          }
+
+          const itemAbove = decorations[currentIndex + 1];
+          
+          // Swap z-index values
+          return prev.map((i) => {
+            if (i.id === id) {
+              return { ...i, zIndex: itemAbove.zIndex, updatedAt: new Date() };
+            }
+            if (i.id === itemAbove.id) {
+              return { ...i, zIndex: item.zIndex, updatedAt: new Date() };
+            }
+            return i;
+          });
+        } else {
+          // For non-decorations: swap with other non-decorations
+          const nonDecorations = prev
+            .filter((i) => i.type !== 'decoration')
+            .sort((a, b) => a.zIndex - b.zIndex);
+
+          const currentIndex = nonDecorations.findIndex((i) => i.id === id);
+          if (currentIndex === -1 || currentIndex === nonDecorations.length - 1) {
+            // Already at top or not found
+            return prev;
+          }
+
+          const itemAbove = nonDecorations[currentIndex + 1];
+          
+          // Swap z-index values
+          return prev.map((i) => {
+            if (i.id === id) {
+              return { ...i, zIndex: itemAbove.zIndex, updatedAt: new Date() };
+            }
+            if (i.id === itemAbove.id) {
+              return { ...i, zIndex: item.zIndex, updatedAt: new Date() };
+            }
+            return i;
+          });
+        }
+      });
+    },
+    []
+  );
+
+  // Handle move down (send backward in z-index)
+  const handleMoveDown = useCallback(
+    (id: string) => {
+      setItems((prev) => {
+        const item = prev.find((i) => i.id === id);
+        if (!item) return prev;
+
+        if (item.type === 'decoration') {
+          // For decorations: only swap with other decorations
+          const decorations = prev
+            .filter((i) => i.type === 'decoration')
+            .sort((a, b) => a.zIndex - b.zIndex);
+
+          const currentIndex = decorations.findIndex((i) => i.id === id);
+          if (currentIndex === -1 || currentIndex === 0) {
+            // Already at bottom of decorations or not found
+            return prev;
+          }
+
+          const itemBelow = decorations[currentIndex - 1];
+          
+          // Swap z-index values
+          return prev.map((i) => {
+            if (i.id === id) {
+              return { ...i, zIndex: itemBelow.zIndex, updatedAt: new Date() };
+            }
+            if (i.id === itemBelow.id) {
+              return { ...i, zIndex: item.zIndex, updatedAt: new Date() };
+            }
+            return i;
+          });
+        } else {
+          // For non-decorations: swap with other non-decorations
+          const nonDecorations = prev
+            .filter((i) => i.type !== 'decoration')
+            .sort((a, b) => a.zIndex - b.zIndex);
+
+          const currentIndex = nonDecorations.findIndex((i) => i.id === id);
+          if (currentIndex === -1 || currentIndex === 0) {
+            // Already at bottom or not found
+            return prev;
+          }
+
+          const itemBelow = nonDecorations[currentIndex - 1];
+          
+          // Swap z-index values
+          return prev.map((i) => {
+            if (i.id === id) {
+              return { ...i, zIndex: itemBelow.zIndex, updatedAt: new Date() };
+            }
+            if (i.id === itemBelow.id) {
+              return { ...i, zIndex: item.zIndex, updatedAt: new Date() };
+            }
+            return i;
+          });
+        }
+      });
+    },
+    []
+  );
+
   // Get selected item
   const selectedItem = items.find((item) => item.id === selectedId) || null;
 
@@ -161,6 +298,8 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
     addItem,
     updateItem,
     handleResize,
+    handleMoveUp,
+    handleMoveDown,
   };
 }
 
