@@ -5,6 +5,7 @@ import { useChapterStore } from '@/stores/chapter-store';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import CanvasTopBar from '@/components/CanvasTopBar';
 import CanvasWithItems from '@/components/CanvasWithItems';
+import AddSongModal from '@/components/AddSongModal';
 import Link from 'next/link';
 import { CanvasItem } from '@/lib/canvas-item-types';
 
@@ -41,6 +42,7 @@ export default function ChapterPage() {
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const hasLoadedRef = useRef(false);
   const isInitialLoadRef = useRef(true);
+  const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
 
   // Storage key for this chapter's items
   const storageKey = `chapter-${id}-items`;
@@ -171,6 +173,36 @@ export default function ChapterPage() {
     });
   };
 
+  // Handle adding songs
+  const handleAddSong = (spotifyTrackId: string) => {
+    if (!addItemRef.current || !getViewportCenterRef.current) return;
+
+    // Calculate viewport center in canvas coordinates
+    const center = getViewportCenterRef.current!();
+    
+    // Default size for Spotify embed (standard Spotify player size)
+    const defaultWidth = 300;
+    const defaultHeight = 152; // Standard Spotify embed height
+    
+    // Scatter songs naturally around viewport center
+    const offsetX = (Math.random() - 0.5) * 160; // -80 to +80
+    const offsetY = (Math.random() - 0.5) * 160; // -80 to +80
+    
+    // Add slight random rotation for playful scrapbook feel (-3° to +3°)
+    const rotation = (Math.random() - 0.5) * 6;
+    
+    // Add song centered at scattered position
+    addItemRef.current!({
+      type: 'song',
+      x: center.x + offsetX - defaultWidth / 2,
+      y: center.y + offsetY - defaultHeight / 2,
+      width: Math.round(defaultWidth),
+      height: Math.round(defaultHeight),
+      rotation,
+      spotifyTrackId,
+    });
+  };
+
   // Handle adding photos
   const handleAddPhoto = (files: File[]) => {
     if (!files || files.length === 0 || !addItemRef.current || !getViewportCenterRef.current) return;
@@ -279,7 +311,17 @@ export default function ChapterPage() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <CanvasTopBar chapter={chapter} onAddRectangle={handleAddRectangle} onAddPhoto={handleAddPhoto} />
+      <CanvasTopBar 
+        chapter={chapter} 
+        onAddRectangle={handleAddRectangle} 
+        onAddPhoto={handleAddPhoto}
+        onAddSong={() => setIsAddSongModalOpen(true)}
+      />
+      <AddSongModal
+        isOpen={isAddSongModalOpen}
+        onClose={() => setIsAddSongModalOpen(false)}
+        onAdd={handleAddSong}
+      />
       <div className="flex-1 relative overflow-hidden">
         <CanvasWithItems
           initialItems={items}

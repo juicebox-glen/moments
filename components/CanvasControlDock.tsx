@@ -61,6 +61,9 @@ export default function CanvasControlDock({
   const getActivePreset = () => {
     if (isMultiSelect) return null;
     
+    // Songs cannot be resized, so no active preset
+    if (selectedItem.type === 'song') return null;
+    
     // For photos, we scale based on width, so compare width
     // For non-photos (squares), use max of width/height
     const currentSize = 
@@ -90,6 +93,8 @@ export default function CanvasControlDock({
         return 'Memento';
       case 'color':
         return 'Rectangle';
+      case 'song':
+        return 'Song';
       default:
         return 'Item';
     }
@@ -97,6 +102,9 @@ export default function CanvasControlDock({
 
   const handleSizeClick = (preset: 'S' | 'M' | 'L') => {
     if (isMultiSelect) return; // Disable resize for multi-select
+    
+    // Songs cannot be resized
+    if (selectedItem.type === 'song') return;
     
     // For photos, preserve aspect ratio by scaling width only
     if (selectedItem.type === 'photo' && selectedItem.aspectRatio) {
@@ -154,8 +162,8 @@ export default function CanvasControlDock({
           {getSelectionLabel()}
         </div>
 
-        {/* Size Preset Buttons (only for single select) */}
-        {!isMultiSelect &&
+        {/* Size Preset Buttons (only for single select, and not for songs) */}
+        {!isMultiSelect && selectedItem.type !== 'song' &&
           (['S', 'M', 'L'] as const).map((preset) => {
             const isActive = activePreset === preset;
             return (

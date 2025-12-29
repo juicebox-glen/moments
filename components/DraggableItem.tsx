@@ -59,6 +59,7 @@ function DraggableItem({
   } | null>(null);
   const [cursor, setCursor] = useState<string>('grab');
   const itemRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const cursorThrottleRef = useRef<number>(0);
 
   // Check if mouse is near a corner for rotation
@@ -402,22 +403,64 @@ function DraggableItem({
             {item.content || 'Note'}
           </div>
         )}
+        {item.type === 'song' && item.spotifyTrackId && (
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <iframe
+              ref={iframeRef}
+              src={`https://open.spotify.com/embed/track/${item.spotifyTrackId}?utm_source=generator&theme=0`}
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+              style={{
+                borderRadius: '8px',
+                pointerEvents: 'auto', // Ensure iframe can receive pointer events
+              }}
+            />
+            {/* Transparent overlay with clipPath cutout for interactive areas */}
+            {/* The clipPath creates an overlay with two small cutouts: */}
+            {/* 1. Top-right corner (40x40px) for the X close button */}
+            {/* 2. Bottom-right corner (100x100px) for the play button */}
+            {/* Everything else (including artist names and text) is blocked from interaction */}
+            {/* Clicks on the overlay will bubble up to parent handleMouseDown for drag/rotate */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'auto', // Allow overlay to receive pointer events
+                clipPath: `polygon(
+                  0% 0%,
+                  calc(100% - 40px) 0%,
+                  calc(100% - 40px) 40px,
+                  100% 40px,
+                  100% calc(100% - 100px),
+                  calc(100% - 100px) calc(100% - 100px),
+                  calc(100% - 100px) 100%,
+                  0% 100%
+                )`,
+                // This creates an L-shaped overlay that covers everything except:
+                // - Top-right 40x40px square (X button area)
+                // - Bottom-right 100x100px square (play button area)
+                // The middle area (where artist names/text are) is fully blocked
+              }}
+              // No onMouseDown handler - let the event bubble up to parent container's handleMouseDown
+            />
+          </div>
+        )}
       </div>
 
-
-      {/* Rotation handles at all 4 corners (when selected) */}
+      {/* Corner rotation handles (when selected) */}
       {isSelected && (() => {
-        const handleRotationStart = (e: React.MouseEvent) => {
+        const handleCornerRotationStart = (e: React.MouseEvent) => {
           e.stopPropagation();
           e.preventDefault();
           
           const rect = itemRef.current?.getBoundingClientRect();
           if (!rect) return;
-
-          // Auto-select if not already selected
-          if (!isSelected) {
-            onSelect(item.id);
-          }
 
           // Calculate actual center of item (accounting for rotation)
           const centerX = rect.left + rect.width / 2;
@@ -435,88 +478,91 @@ function DraggableItem({
           });
         };
 
+        const handleSize = 8; // Size of corner handles
+        const handleOffset = handleSize / 2; // Offset to center handle at corner
+
         const handleStyle: React.CSSProperties = {
           position: 'absolute',
-          width: '24px',
-          height: '24px',
+          width: `${handleSize}px`,
+          height: `${handleSize}px`,
           borderRadius: '50%',
-          backgroundColor: '#3b82f6',
-          border: '2px solid white',
+          backgroundColor: 'rgba(59, 130, 246, 0.9)', // Blue matching selection outline
+          border: '1.5px solid white',
           cursor: 'crosshair',
-          opacity: 0.7,
-          transition: 'opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
           zIndex: item.zIndex + 10,
+          transition: 'transform 0.15s ease, opacity 0.15s ease',
+          pointerEvents: 'auto',
         };
 
         return (
           <>
-            {/* Top-left */}
+            {/* Top-left corner */}
             <div
-              onMouseDown={handleRotationStart}
+              onMouseDown={handleCornerRotationStart}
               style={{
                 ...handleStyle,
-                top: '-12px',
-                left: '-12px',
+                top: `-${handleOffset}px`,
+                left: `-${handleOffset}px`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.transform = 'scale(1.15)';
+                e.currentTarget.style.transform = 'scale(1.2)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
                 e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.9)';
               }}
             />
-            {/* Top-right */}
+            {/* Top-right corner */}
             <div
-              onMouseDown={handleRotationStart}
+              onMouseDown={handleCornerRotationStart}
               style={{
                 ...handleStyle,
-                top: '-12px',
-                right: '-12px',
+                top: `-${handleOffset}px`,
+                right: `-${handleOffset}px`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.transform = 'scale(1.15)';
+                e.currentTarget.style.transform = 'scale(1.2)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
                 e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.9)';
               }}
             />
-            {/* Bottom-left */}
+            {/* Bottom-left corner */}
             <div
-              onMouseDown={handleRotationStart}
+              onMouseDown={handleCornerRotationStart}
               style={{
                 ...handleStyle,
-                bottom: '-12px',
-                left: '-12px',
+                bottom: `-${handleOffset}px`,
+                left: `-${handleOffset}px`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.transform = 'scale(1.15)';
+                e.currentTarget.style.transform = 'scale(1.2)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
                 e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.9)';
               }}
             />
-            {/* Bottom-right */}
+            {/* Bottom-right corner */}
             <div
-              onMouseDown={handleRotationStart}
+              onMouseDown={handleCornerRotationStart}
               style={{
                 ...handleStyle,
-                bottom: '-12px',
-                right: '-12px',
+                bottom: `-${handleOffset}px`,
+                right: `-${handleOffset}px`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.transform = 'scale(1.15)';
+                e.currentTarget.style.transform = 'scale(1.2)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
                 e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.9)';
               }}
             />
           </>

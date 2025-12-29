@@ -5,7 +5,7 @@
 
 export interface CanvasItem {
   id: string;
-  type: 'photo' | 'note' | 'memento' | 'color';
+  type: 'photo' | 'note' | 'memento' | 'color' | 'song';
   x: number; // Canvas coordinates (absolute)
   y: number; // Canvas coordinates (absolute)
   width: number;
@@ -17,6 +17,7 @@ export interface CanvasItem {
   content?: string; // For notes
   imageUrl?: string; // For photos
   aspectRatio?: number; // For photos: width/height ratio (preserved during resize)
+  spotifyTrackId?: string; // For songs: Spotify track ID
   // Metadata
   createdAt: Date;
   updatedAt: Date;
