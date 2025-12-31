@@ -17,6 +17,8 @@ interface CanvasWithItemsProps {
   onAddEmoji?: () => void;
   onAddSticker?: () => void;
   onAddDecoration?: () => void;
+  onAddText?: () => void;
+  onItemDoubleClick?: (itemId: string) => void;
   // Expose editing state setter for parent
   onEditingStateReady?: (setEditingItemId: (id: string | null) => void) => void;
 }
@@ -30,6 +32,8 @@ export default function CanvasWithItems({
   onAddEmoji,
   onAddSticker,
   onAddDecoration,
+  onAddText,
+  onItemDoubleClick,
 }: CanvasWithItemsProps) {
   const {
     items,
@@ -260,6 +264,7 @@ export default function CanvasWithItems({
               onRotate={handleRotate}
               onSelect={handleSelect}
               onInteractionStart={handleCanvasInteraction}
+              onDoubleClick={onItemDoubleClick}
               isSelected={selectedId === item.id}
               selectedIds={selectedId ? [selectedId] : []}
               scale={scale}
@@ -281,6 +286,7 @@ export default function CanvasWithItems({
         onAddEmoji={onAddEmoji}
         onAddSticker={onAddSticker}
         onAddDecoration={onAddDecoration}
+        onAddText={onAddText}
       />
     </>
   );

@@ -21,6 +21,7 @@ interface ContextualToolbarProps {
   onAddEmoji?: () => void;
   onAddSticker?: () => void;
   onAddDecoration?: () => void;
+  onAddText?: () => void;
 }
 
 export default function ContextualToolbar({
@@ -34,6 +35,7 @@ export default function ContextualToolbar({
   onAddEmoji,
   onAddSticker,
   onAddDecoration,
+  onAddText,
 }: ContextualToolbarProps) {
   const [mode, setMode] = useState<'add' | 'edit'>('add');
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -283,6 +285,39 @@ export default function ContextualToolbar({
                   <path d="M2 2H14V14H2V2ZM4 4V12H12V4H4Z" fill="currentColor" />
                 </svg>
                 Decoration
+              </button>
+            )}
+            {onAddText && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent click from reaching canvas
+                  onAddText?.();
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 2H14V2H2V2ZM4 4H12V6H4V4ZM4 8H12V10H4V8ZM4 12H10V14H4V12Z" fill="currentColor" />
+                </svg>
+                Text
               </button>
             )}
         </div>

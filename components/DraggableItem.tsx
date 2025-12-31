@@ -9,6 +9,7 @@ interface DraggableItemProps {
   onRotate: (id: string, rotation: number) => void;
   onSelect: (id: string) => void;
   onInteractionStart?: () => void; // Called when drag/rotate starts (to close dropdowns)
+  onDoubleClick?: (id: string) => void; // Called when item is double-clicked
   isSelected: boolean;
   selectedIds: string[]; // For opacity control (backward compatibility)
   scale: number; // Current canvas zoom scale
@@ -45,6 +46,7 @@ function DraggableItem({
   onRotate,
   onSelect,
   onInteractionStart,
+  onDoubleClick,
   isSelected,
   selectedIds,
   scale,
@@ -408,13 +410,19 @@ function DraggableItem({
         setIsHovering(false);
         handleMouseLeave();
       }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (!disabled && !isDragging && !isRotating && onDoubleClick) {
+          onDoubleClick(item.id);
+        }
+      }}
     >
       {/* Item content based on type */}
       <div
         style={{
           width: '100%',
           height: '100%',
-          borderRadius: item.type === 'photo' || item.type === 'gif' || item.type === 'sticker' || item.type === 'decoration' ? '8px' : '4px',
+          borderRadius: item.type === 'photo' || item.type === 'gif' || item.type === 'sticker' || item.type === 'decoration' || item.type === 'note' ? '8px' : '4px',
           overflow: 'hidden',
           pointerEvents: 'none', // Prevent content from interfering with drag
           backgroundColor: item.type === 'photo' || item.type === 'gif' ? 'transparent' : 'transparent', // Transparent for PNG support
@@ -498,6 +506,28 @@ function DraggableItem({
               backgroundRepeat: 'repeat',
             }}
           />
+        )}
+        {item.type === 'note' && item.content && (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              padding: '12px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'flex-start',
+              fontSize: '14px',
+              lineHeight: '1.5',
+              color: '#374151',
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word',
+              overflow: 'hidden',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              backgroundColor: '#FAFAF8', // Background for text readability
+            }}
+          >
+            {item.content}
+          </div>
         )}
         {item.type === 'song' && item.spotifyTrackId && (
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>

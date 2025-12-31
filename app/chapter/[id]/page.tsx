@@ -8,6 +8,7 @@ import CanvasWithItems from '@/components/CanvasWithItems';
 import AddSongModal from '@/components/AddSongModal';
 import AddEmojiStickerGifModal from '@/components/AddEmojiStickerGifModal';
 import AddDecorationModal from '@/components/AddDecorationModal';
+import TextEditModal from '@/components/TextEditModal';
 import { type DecorationPreset } from '@/lib/decoration-presets';
 import Link from 'next/link';
 import { CanvasItem } from '@/lib/canvas-item-types';
@@ -75,6 +76,8 @@ export default function ChapterPage() {
   const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
   const [isAddEmojiStickerGifModalOpen, setIsAddEmojiStickerGifModalOpen] = useState(false);
   const [isAddDecorationModalOpen, setIsAddDecorationModalOpen] = useState(false);
+  const [isTextEditModalOpen, setIsTextEditModalOpen] = useState(false);
+  const [editingTextItemId, setEditingTextItemId] = useState<string | null>(null);
 
   // Storage key for this chapter's items
   const storageKey = `chapter-${id}-items`;
@@ -569,6 +572,61 @@ export default function ChapterPage() {
     });
   };
 
+  // Handle adding text
+  const handleAddText = (content: string) => {
+    if (!addItemRef.current || !getViewportCenterRef.current) return;
+
+    const center = getViewportCenterRef.current!();
+    const offsetX = (Math.random() - 0.5) * 160;
+    const offsetY = (Math.random() - 0.5) * 160;
+    
+    // Default size for text items
+    const defaultWidth = 250;
+    const defaultHeight = 150;
+    
+    // Slight random rotation (-3° to +3°)
+    const rotation = (Math.random() - 0.5) * 6;
+    
+    addItemRef.current!({
+      type: 'note',
+      x: center.x + offsetX - defaultWidth / 2,
+      y: center.y + offsetY - defaultHeight / 2,
+      width: defaultWidth,
+      height: defaultHeight,
+      rotation,
+      content,
+    });
+  };
+
+  // Handle editing text (updates existing item)
+  const handleEditText = useCallback((content: string) => {
+    if (!editingTextItemId) {
+      // If no editing item ID, treat as new text
+      handleAddText(content);
+      return;
+    }
+
+    // Update existing item
+    setItemsWithLogging((prev) =>
+      prev.map((item) =>
+        item.id === editingTextItemId && item.type === 'note'
+          ? { ...item, content, updatedAt: new Date() }
+          : item
+      )
+    );
+    
+    setEditingTextItemId(null);
+  }, [editingTextItemId, handleAddText, setItemsWithLogging]);
+
+  // Handle double-click on text item
+  const handleTextItemDoubleClick = useCallback((itemId: string) => {
+    const item = itemsRef.current.find(i => i.id === itemId);
+    if (item && item.type === 'note') {
+      setEditingTextItemId(itemId);
+      setIsTextEditModalOpen(true);
+    }
+  }, []);
+
   // Handle adding photos
   const handleAddPhoto = useCallback(async (files: File[]) => {
     if (!files || files.length === 0 || !addItemRef.current || !getViewportCenterRef.current || !id) return;
@@ -792,6 +850,15 @@ export default function ChapterPage() {
         onClose={() => setIsAddDecorationModalOpen(false)}
         onAdd={handleAddDecoration}
       />
+      <TextEditModal
+        isOpen={isTextEditModalOpen}
+        onClose={() => {
+          setIsTextEditModalOpen(false);
+          setEditingTextItemId(null);
+        }}
+        onAdd={handleEditText}
+        initialContent={editingTextItemId ? items.find(i => i.id === editingTextItemId && i.type === 'note')?.content || '' : ''}
+      />
       <div className="flex-1 relative overflow-hidden">
         <CanvasWithItems
           initialItems={items}
@@ -805,6 +872,11 @@ export default function ChapterPage() {
           onAddEmoji={() => setIsAddEmojiStickerGifModalOpen(true)}
           onAddSticker={() => setIsAddEmojiStickerGifModalOpen(true)}
           onAddDecoration={() => setIsAddDecorationModalOpen(true)}
+          onAddText={() => {
+            setEditingTextItemId(null);
+            setIsTextEditModalOpen(true);
+          }}
+          onItemDoubleClick={handleTextItemDoubleClick}
         />
       </div>
     </div>
