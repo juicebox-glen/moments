@@ -122,22 +122,52 @@ export default function CanvasWithItems({
   }, [items, onItemsChange, initialItems]);
 
   // Track current canvas transform for viewport center calculation
+  // Performance optimization: Use refs to store latest transform (updated immediately) 
+  // and state for rendering (throttled via requestAnimationFrame to max 60fps)
+  // This prevents excessive re-renders during pan/zoom while keeping viewport calculations accurate
+  const transformRef = React.useRef({
+    scale: 1,
+    positionX: -4500,
+    positionY: -4500,
+  });
+  
   const [canvasTransform, setCanvasTransform] = React.useState({
     scale: 1,
     positionX: -4500,
     positionY: -4500,
   });
 
-  // Calculate viewport center in canvas coordinates
+  // RAF-based throttling for transform updates (max 60fps = ~16ms per frame)
+  // Prevents state updates on every pan/zoom frame, reducing re-renders significantly
+  const rafRef = React.useRef<number | null>(null);
+  const pendingTransformRef = React.useRef<{ scale: number; positionX: number; positionY: number } | null>(null);
+
+  // Throttled transform update function - only updates state once per animation frame
+  const updateTransform = React.useCallback(() => {
+    if (pendingTransformRef.current) {
+      const pending = pendingTransformRef.current;
+      pendingTransformRef.current = null;
+      
+      // Update ref immediately (for getViewportCenter - needs latest value)
+      transformRef.current = pending;
+      
+      // Update state (triggers re-render and visibleItems recalculation)
+      setCanvasTransform(pending);
+    }
+    rafRef.current = null;
+  }, []);
+
+  // Calculate viewport center in canvas coordinates (uses ref for latest value)
   const getViewportCenter = React.useCallback(() => {
     const viewportCenterX = window.innerWidth / 2;
     const viewportCenterY = window.innerHeight / 2;
     
-    const canvasX = (viewportCenterX - canvasTransform.positionX) / canvasTransform.scale;
-    const canvasY = (viewportCenterY - canvasTransform.positionY) / canvasTransform.scale;
+    const transform = transformRef.current;
+    const canvasX = (viewportCenterX - transform.positionX) / transform.scale;
+    const canvasY = (viewportCenterY - transform.positionY) / transform.scale;
     
     return { x: canvasX, y: canvasY };
-  }, [canvasTransform]);
+  }, []);
 
   // Expose addItem function and viewport center calculator to parent
   React.useEffect(() => {
@@ -186,6 +216,15 @@ export default function CanvasWithItems({
     });
   }, [items, canvasTransform, selectedId]);
 
+  // Cleanup RAF on unmount
+  React.useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
   // Handle resize for selected item
   const handleDockResize = React.useCallback(
     (width: number, height: number) => {
@@ -210,10 +249,16 @@ export default function CanvasWithItems({
     handleCanvasInteraction();
   }, [handleCanvasClick, handleCanvasInteraction]);
 
-  // Memoize transform change handler
+  // Throttled transform change handler (updates at most once per frame via RAF)
   const handleTransformChange = React.useCallback((scale: number, positionX: number, positionY: number) => {
-    setCanvasTransform({ scale, positionX, positionY });
-  }, []);
+    // Store pending transform
+    pendingTransformRef.current = { scale, positionX, positionY };
+    
+    // Schedule update if not already scheduled
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(updateTransform);
+    }
+  }, [updateTransform]);
 
   // Handle delete for selected item(s)
   const handleDockDelete = React.useCallback(() => {
