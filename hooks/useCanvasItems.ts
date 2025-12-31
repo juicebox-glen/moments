@@ -58,15 +58,6 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
     return Math.max(...items.map((item) => item.zIndex)) + 1;
   }, [items]);
 
-  // Get z-index for decorations (always behind other content)
-  const getDecorationZIndex = useCallback(() => {
-    // Get the minimum zIndex of non-decoration items, or 0 if none exist
-    const nonDecorationItems = items.filter(item => item.type !== 'decoration');
-    if (nonDecorationItems.length === 0) return 0;
-    const minZIndex = Math.min(...nonDecorationItems.map(item => item.zIndex));
-    // Return a zIndex that's lower than the minimum (behind everything)
-    return Math.max(0, minZIndex - 1);
-  }, [items]);
 
   // Handle drag
   const handleDrag = useCallback(
@@ -133,10 +124,8 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
   // Add new item (automatically selects it)
   const addItem = useCallback(
     (item: Omit<CanvasItem, 'id' | 'zIndex' | 'createdAt' | 'updatedAt'>) => {
-      // Decorations always go behind other content
-      const zIndex = item.type === 'decoration' 
-        ? getDecorationZIndex() 
-        : getNextZIndex();
+      // All items (including decorations) are placed on top when added
+      const zIndex = getNextZIndex();
       
       const newItem: CanvasItem = {
         ...item,
@@ -169,7 +158,7 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
       setSelectedId(newItem.id);
       return newItem.id;
     },
-    [getNextId, getNextZIndex, getDecorationZIndex, items.length]
+    [getNextId, getNextZIndex, items.length]
   );
 
   // Update item
@@ -237,70 +226,37 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
   // Handle move up (bring forward relative to overlapping items)
   const handleMoveUp = useCallback(
     (id: string) => {
+      isInternalUpdateRef.current = true;
       setItems((prev) => {
         const item = prev.find((i) => i.id === id);
         if (!item) return prev;
 
-        if (item.type === 'decoration') {
-          // For decorations: find overlapping decorations that are above
-          const overlappingDecorations = prev
-            .filter((i) => i.type === 'decoration' && i.id !== id && itemsOverlap(item, i))
-            .filter((i) => i.zIndex > item.zIndex)
-            .sort((a, b) => a.zIndex - b.zIndex); // Sort ascending to find the lowest one above
+        // For all items (including decorations): find overlapping items that are above
+        const overlappingItems = prev
+          .filter((i) => i.id !== id && itemsOverlap(item, i))
+          .filter((i) => i.zIndex > item.zIndex)
+          .sort((a, b) => a.zIndex - b.zIndex); // Sort ascending to find the lowest one above
 
-          if (overlappingDecorations.length === 0) {
-            // No overlapping decorations above, bring to top of decoration stack
-            const allDecorations = prev
-              .filter((i) => i.type === 'decoration')
-              .sort((a, b) => a.zIndex - b.zIndex);
-            const maxZIndex = allDecorations.length > 0 
-              ? Math.max(...allDecorations.map((i) => i.zIndex))
-              : item.zIndex;
-            // If already at top, do nothing
-            if (item.zIndex >= maxZIndex) {
-              return prev;
-            }
-            // Move to top of decoration stack
-            return prev.map((i) =>
-              i.id === id ? { ...i, zIndex: maxZIndex + 1, updatedAt: new Date() } : i
-            );
+        if (overlappingItems.length === 0) {
+          // No overlapping items above, bring to top
+          const maxZIndex = prev.length > 0
+            ? Math.max(...prev.map((i) => i.zIndex))
+            : item.zIndex;
+          // If already at top, do nothing
+          if (item.zIndex >= maxZIndex) {
+            return prev;
           }
-
-          // Move to just above the lowest overlapping decoration
-          const lowestOverlapping = overlappingDecorations[0];
+          // Move to top
           return prev.map((i) =>
-            i.id === id ? { ...i, zIndex: lowestOverlapping.zIndex + 1, updatedAt: new Date() } : i
-          );
-        } else {
-          // For non-decorations: find overlapping items that are above
-          const overlappingItems = prev
-            .filter((i) => i.type !== 'decoration' && i.id !== id && itemsOverlap(item, i))
-            .filter((i) => i.zIndex > item.zIndex)
-            .sort((a, b) => a.zIndex - b.zIndex); // Sort ascending to find the lowest one above
-
-          if (overlappingItems.length === 0) {
-            // No overlapping items above, bring to top of non-decoration stack
-            const allNonDecorations = prev
-              .filter((i) => i.type !== 'decoration');
-            const maxZIndex = allNonDecorations.length > 0
-              ? Math.max(...allNonDecorations.map((i) => i.zIndex))
-              : item.zIndex;
-            // If already at top, do nothing
-            if (item.zIndex >= maxZIndex) {
-              return prev;
-            }
-            // Move to top of non-decoration stack
-            return prev.map((i) =>
-              i.id === id ? { ...i, zIndex: maxZIndex + 1, updatedAt: new Date() } : i
-            );
-          }
-
-          // Move to just above the lowest overlapping item
-          const lowestOverlapping = overlappingItems[0];
-          return prev.map((i) =>
-            i.id === id ? { ...i, zIndex: lowestOverlapping.zIndex + 1, updatedAt: new Date() } : i
+            i.id === id ? { ...i, zIndex: maxZIndex + 1, updatedAt: new Date() } : i
           );
         }
+
+        // Move to just above the lowest overlapping item
+        const lowestOverlapping = overlappingItems[0];
+        return prev.map((i) =>
+          i.id === id ? { ...i, zIndex: lowestOverlapping.zIndex + 1, updatedAt: new Date() } : i
+        );
       });
     },
     [itemsOverlap]
@@ -314,72 +270,32 @@ export function useCanvasItems(initialItems: CanvasItem[] = []) {
         const item = prev.find((i) => i.id === id);
         if (!item) return prev;
 
-        if (item.type === 'decoration') {
-          // For decorations: find overlapping decorations that are below
-          const overlappingDecorations = prev
-            .filter((i) => i.type === 'decoration' && i.id !== id && itemsOverlap(item, i))
-            .filter((i) => i.zIndex < item.zIndex)
-            .sort((a, b) => b.zIndex - a.zIndex); // Sort descending to find the highest one below
+        // For all items (including decorations): find overlapping items that are below
+        const overlappingItems = prev
+          .filter((i) => i.id !== id && itemsOverlap(item, i))
+          .filter((i) => i.zIndex < item.zIndex)
+          .sort((a, b) => b.zIndex - a.zIndex); // Sort descending to find the highest one below
 
-          if (overlappingDecorations.length === 0) {
-            // No overlapping decorations below, send to bottom of decoration stack
-            const allDecorations = prev
-              .filter((i) => i.type === 'decoration')
-              .sort((a, b) => a.zIndex - b.zIndex);
-            const minZIndex = allDecorations.length > 0
-              ? Math.min(...allDecorations.map((i) => i.zIndex))
-              : item.zIndex;
-            // If already at bottom, do nothing
-            if (item.zIndex <= minZIndex) {
-              return prev;
-            }
-            // Move to bottom of decoration stack
-            return prev.map((i) =>
-              i.id === id ? { ...i, zIndex: Math.max(0, minZIndex - 1), updatedAt: new Date() } : i
-            );
+        if (overlappingItems.length === 0) {
+          // No overlapping items below, send to bottom
+          const minZIndex = prev.length > 0
+            ? Math.min(...prev.map((i) => i.zIndex))
+            : item.zIndex;
+          // If already at bottom, do nothing
+          if (item.zIndex <= minZIndex) {
+            return prev;
           }
-
-          // Move to just below the highest overlapping decoration
-          const highestOverlapping = overlappingDecorations[0];
+          // Move to bottom
           return prev.map((i) =>
-            i.id === id ? { ...i, zIndex: Math.max(0, highestOverlapping.zIndex - 1), updatedAt: new Date() } : i
-          );
-        } else {
-          // For non-decorations: find overlapping items that are below
-          const overlappingItems = prev
-            .filter((i) => i.type !== 'decoration' && i.id !== id && itemsOverlap(item, i))
-            .filter((i) => i.zIndex < item.zIndex)
-            .sort((a, b) => b.zIndex - a.zIndex); // Sort descending to find the highest one below
-
-          if (overlappingItems.length === 0) {
-            // No overlapping items below, send to bottom of non-decoration stack
-            const allNonDecorations = prev
-              .filter((i) => i.type !== 'decoration');
-            const minZIndex = allNonDecorations.length > 0
-              ? Math.min(...allNonDecorations.map((i) => i.zIndex))
-              : item.zIndex;
-            // If already at bottom, do nothing
-            if (item.zIndex <= minZIndex) {
-              return prev;
-            }
-            // Move to bottom of non-decoration stack (but stay above decorations)
-            const decorationMaxZIndex = prev
-              .filter((i) => i.type === 'decoration')
-              .length > 0
-              ? Math.max(...prev.filter((i) => i.type === 'decoration').map((i) => i.zIndex))
-              : 0;
-            const targetZIndex = Math.max(decorationMaxZIndex + 1, minZIndex - 1);
-            return prev.map((i) =>
-              i.id === id ? { ...i, zIndex: targetZIndex, updatedAt: new Date() } : i
-            );
-          }
-
-          // Move to just below the highest overlapping item
-          const highestOverlapping = overlappingItems[0];
-          return prev.map((i) =>
-            i.id === id ? { ...i, zIndex: highestOverlapping.zIndex - 1, updatedAt: new Date() } : i
+            i.id === id ? { ...i, zIndex: Math.max(0, minZIndex - 1), updatedAt: new Date() } : i
           );
         }
+
+        // Move to just below the highest overlapping item
+        const highestOverlapping = overlappingItems[0];
+        return prev.map((i) =>
+          i.id === id ? { ...i, zIndex: highestOverlapping.zIndex - 1, updatedAt: new Date() } : i
+        );
       });
     },
     [itemsOverlap]
