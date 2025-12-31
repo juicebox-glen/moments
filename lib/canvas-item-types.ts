@@ -14,7 +14,7 @@ export interface CanvasItem {
   zIndex: number; // Stacking order
   // Type-specific properties
   color?: string; // For color blocks
-  content?: string; // For notes
+  content?: string; // For notes/text
   imageUrl?: string; // For photos
   aspectRatio?: number; // For photos: width/height ratio (preserved during resize)
   spotifyTrackId?: string; // For songs: Spotify track ID
@@ -23,6 +23,13 @@ export interface CanvasItem {
   stickerUrl?: string; // For stickers: Giphy sticker URL
   decorationPreset?: string; // For decorations: preset ID
   decorationFill?: string; // For decorations: CSS fill (color, pattern, texture)
+  // Text properties
+  font?: string; // Font family for text
+  fontSize?: number; // Font size in pixels
+  textColor?: string; // Text color (hex)
+  textAlign?: 'left' | 'center' | 'right'; // Text alignment
+  textBackgroundColor?: string; // Background color for text (like Instagram stories)
+  textMode?: 'editing' | 'object'; // Text interaction mode: editing (typing) or object (draggable)
   // Metadata
   createdAt: Date;
   updatedAt: Date;

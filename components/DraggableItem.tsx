@@ -8,6 +8,7 @@ interface DraggableItemProps {
   onDrag: (id: string, x: number, y: number) => void;
   onRotate: (id: string, rotation: number) => void;
   onSelect: (id: string) => void;
+  onInteractionStart?: () => void; // Called when drag/rotate starts (to close dropdowns)
   isSelected: boolean;
   selectedIds: string[]; // For opacity control (backward compatibility)
   scale: number; // Current canvas zoom scale
@@ -24,6 +25,12 @@ const areEqual = (prevProps: DraggableItemProps, nextProps: DraggableItemProps) 
     prevProps.item.zIndex === nextProps.item.zIndex &&
     prevProps.item.width === nextProps.item.width &&
     prevProps.item.height === nextProps.item.height &&
+    prevProps.item.content === nextProps.item.content &&
+    prevProps.item.font === nextProps.item.font &&
+    prevProps.item.fontSize === nextProps.item.fontSize &&
+    prevProps.item.textColor === nextProps.item.textColor &&
+    prevProps.item.textAlign === nextProps.item.textAlign &&
+    prevProps.item.textBackgroundColor === nextProps.item.textBackgroundColor &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.selectedIds.length === nextProps.selectedIds.length &&
     prevProps.selectedIds.every((id, idx) => nextProps.selectedIds[idx] === id) &&
@@ -37,6 +44,7 @@ function DraggableItem({
   onDrag,
   onRotate,
   onSelect,
+  onInteractionStart,
   isSelected,
   selectedIds,
   scale,
@@ -45,6 +53,7 @@ function DraggableItem({
   const [isDragging, setIsDragging] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  
   const [dragState, setDragState] = useState<{
     startX: number;
     startY: number;
@@ -61,6 +70,20 @@ function DraggableItem({
   const itemRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const cursorThrottleRef = useRef<number>(0);
+
+  // Use refs for stable callbacks to avoid re-running useEffect
+  const onDragRef = useRef(onDrag);
+  const onRotateRef = useRef(onRotate);
+  const onInteractionStartRef = useRef(onInteractionStart);
+  const onSelectRef = useRef(onSelect);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onDragRef.current = onDrag;
+    onRotateRef.current = onRotate;
+    onInteractionStartRef.current = onInteractionStart;
+    onSelectRef.current = onSelect;
+  }, [onDrag, onRotate, onInteractionStart, onSelect]);
 
   // Check if mouse is near a corner for rotation
   const checkCornerType = useCallback(
@@ -113,7 +136,7 @@ function DraggableItem({
       if (cornerType === 'rotate') {
         // Auto-select if not already selected
         if (!isSelected) {
-          onSelect(item.id);
+          onSelectRef.current(item.id);
         }
         
         // Start rotation
@@ -130,12 +153,16 @@ function DraggableItem({
           centerX,
           centerY,
         });
+        // Notify that interaction started (close dropdowns)
+        onInteractionStartRef.current?.();
       } else {
-        // Start drag (don't clear hover state on click - only clear when actually dragging)
-        // If item is already selected and multiple items are selected, don't change selection
+        // Select item if not already selected
         if (!isSelected) {
-          onSelect(item.id);
+          onSelectRef.current(item.id);
         }
+        
+        // Set up drag state - drag will only start if mouse actually moves
+        // (handled in mouse move handler when threshold is crossed)
         setDragState({
           startX: e.clientX,
           startY: e.clientY,
@@ -145,12 +172,26 @@ function DraggableItem({
         // Note: isDragging will be set in the mouse move handler when threshold is crossed
       }
     },
-    [disabled, checkCornerType, isSelected, item.rotation, item.x, item.y, item.id, onSelect]
+    [disabled, checkCornerType, isSelected, item.rotation, item.x, item.y, item.id]
   );
 
   // Handle mouse move - update drag or rotate
   useEffect(() => {
-    if (!dragState && !isRotating && !isDragging) return;
+    // We need to attach mouse listeners if:
+    // 1. We're already dragging/rotating (dragState/rotateState exists)
+    // 2. OR we have dragState/rotateState set (drag/rotate in progress)
+    // 3. OR item is selected (might start dragging)
+    
+    const shouldAttachListeners = 
+      dragState !== null || 
+      rotateState !== null || 
+      isDragging || 
+      isRotating ||
+      isSelected;
+    
+    if (!shouldAttachListeners) {
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       // Check if we should start dragging (if dragState exists but isDragging is false)
@@ -163,6 +204,8 @@ function DraggableItem({
           // Start dragging - clear hover state now
           setIsDragging(true);
           setIsHovering(false);
+          // Notify that interaction started (close dropdowns)
+          onInteractionStartRef.current?.();
         } else {
           // Still just a click, don't start dragging yet
           return;
@@ -177,7 +220,7 @@ function DraggableItem({
         const newX = dragState.itemStartX + deltaX;
         const newY = dragState.itemStartY + deltaY;
 
-        onDrag(item.id, newX, newY);
+        onDragRef.current(item.id, newX, newY);
 
         // Throttle cursor updates for performance
         const now = Date.now();
@@ -197,25 +240,25 @@ function DraggableItem({
         const newRotation =
           rotateState.startRotation + (deltaAngle * 180) / Math.PI;
 
-        onRotate(item.id, newRotation);
+        onRotateRef.current(item.id, newRotation);
 
         // Update cursor
-        setCursor('crosshair');
+        setCursor('grabbing');
       }
-    };
+      };
 
       const handleMouseUp = () => {
-      // If we had dragState but never started dragging, it was just a click
-      if (dragState && !isDragging) {
-        // Just a click - don't clear hover state
-      } else {
-        setIsDragging(false);
-        setIsRotating(false);
-      }
-      setDragState(null);
-      setRotateState(null);
-      setCursor('grab');
-    };
+        // If we had dragState but never started dragging, it was just a click
+        if (dragState && !isDragging && !isRotating) {
+          // Just a click - don't clear hover state
+        } else {
+          setIsDragging(false);
+          setIsRotating(false);
+        }
+        setDragState(null);
+        setRotateState(null);
+        setCursor('grab');
+      };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -224,22 +267,15 @@ function DraggableItem({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, isRotating, dragState, rotateState, item.id, scale, onDrag, onRotate, setIsDragging, setIsHovering]);
+  }, [isDragging, isRotating, dragState, rotateState, item.id, scale, isSelected]);
 
   // Update cursor on hover (when not dragging/rotating)
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (isDragging || isRotating || disabled) return;
+  const handleMouseMove = useCallback(() => {
+    if (isDragging || isRotating || disabled) return;
 
-      const cornerType = checkCornerType(e);
-      if (cornerType === 'rotate') {
-        setCursor('crosshair');
-      } else {
-        setCursor('grab');
-      }
-    },
-    [checkCornerType, isDragging, isRotating, disabled]
-  );
+    // Use grab cursor for all interactions (handles have custom rotate cursor)
+    setCursor('grab');
+  }, [isDragging, isRotating, disabled]);
 
   const handleMouseLeave = useCallback(() => {
     if (!isDragging && !isRotating) {
@@ -338,6 +374,7 @@ function DraggableItem({
     ? 'none'
     : `transform 0.15s ease-out, ${isPhoto ? 'filter' : 'box-shadow'} 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width 0.15s ease-out, height 0.15s ease-out`;
 
+  // Render as draggable canvas item
   return (
     <div
         ref={itemRef}
@@ -358,7 +395,9 @@ function DraggableItem({
           outlineOffset,
           opacity,
         }}
-      onMouseDown={handleMouseDown}
+      onMouseDown={(e) => {
+        handleMouseDown(e);
+      }}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => {
         if (!disabled && !isDragging && !isRotating) {
@@ -460,23 +499,6 @@ function DraggableItem({
             }}
           />
         )}
-        {item.type === 'note' && (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              backgroundColor: '#fff',
-              padding: '12px',
-              fontSize: '14px',
-              color: '#333',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {item.content || 'Note'}
-          </div>
-        )}
         {item.type === 'song' && item.spotifyTrackId && (
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             <iframe
@@ -552,8 +574,11 @@ function DraggableItem({
           });
         };
 
-        const handleSize = 8; // Size of corner handles
+        const handleSize = 14; // Size of corner handles (increased from 8px for better visibility)
         const handleOffset = handleSize / 2; // Offset to center handle at corner
+
+        // Custom rotate cursor - SVG with circular arrows
+        const rotateCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z' fill='%23333'/%3E%3C/svg%3E") 12 12, grab`;
 
         const handleStyle: React.CSSProperties = {
           position: 'absolute',
@@ -561,9 +586,9 @@ function DraggableItem({
           height: `${handleSize}px`,
           borderRadius: '50%',
           backgroundColor: 'rgba(59, 130, 246, 0.9)', // Blue matching selection outline
-          border: '1.5px solid white',
-          cursor: 'crosshair',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+          border: '2px solid white',
+          cursor: rotateCursor,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
           zIndex: item.zIndex + 10,
           transition: 'transform 0.15s ease, opacity 0.15s ease',
           pointerEvents: 'auto',

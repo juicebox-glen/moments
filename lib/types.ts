@@ -5,6 +5,8 @@
  * There are two types: Moments (single day/occasion) and Eras (extended periods).
  */
 
+import { CanvasItem } from './canvas-item-types';
+
 export type ChapterType = 'moment' | 'era';
 
 export interface DateRange {
@@ -33,15 +35,5 @@ export interface Chapter {
   // Metadata
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface CanvasItem {
-  id: string;
-  type: string; // e.g., 'photo', 'note', 'memento'
-  x: number;
-  y: number;
-  rotation: number; // in degrees
-  scale: number;
-  // Future: content, metadata, etc.
 }
 
