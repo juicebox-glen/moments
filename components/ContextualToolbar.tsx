@@ -56,7 +56,7 @@ export default function ContextualToolbar({
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [targetMode, mode]);
+  }, [targetMode]); // Only depend on targetMode, not mode (mode is updated by this effect)
 
   // Get active size preset
   const activePreset = selectedItems.length === 1 
@@ -70,23 +70,14 @@ export default function ContextualToolbar({
     // Songs and GIFs cannot be resized
     if (selectedItem.type === 'song' || selectedItem.type === 'gif') return;
     
-    // For emojis, stickers, and decorations, use square presets
-    if (selectedItem.type === 'emoji' || selectedItem.type === 'sticker' || selectedItem.type === 'decoration') {
-      const { width, height } = SIZE_PRESETS[preset];
-      onSizeChange(width, height);
-      return;
-    }
+    // Calculate current aspect ratio (preserve proportions for all items)
+    const currentAspectRatio = selectedItem.width / selectedItem.height;
     
-    // For photos, preserve aspect ratio by scaling width only
-    if (selectedItem.type === 'photo' && selectedItem.aspectRatio) {
-      const targetWidth = SIZE_PRESETS[preset].width;
-      const targetHeight = targetWidth / selectedItem.aspectRatio;
-      onSizeChange(targetWidth, targetHeight);
-    } else {
-      // For non-photos (rectangles, etc.), use fixed dimensions
-      const { width, height } = SIZE_PRESETS[preset];
-      onSizeChange(width, height);
-    }
+    // Use the preset width as the target size, then calculate height to preserve aspect ratio
+    const targetWidth = SIZE_PRESETS[preset].width;
+    const targetHeight = targetWidth / currentAspectRatio;
+    
+    onSizeChange(targetWidth, targetHeight);
   };
 
   const selectedItem = selectedItems[0];

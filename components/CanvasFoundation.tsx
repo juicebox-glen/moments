@@ -458,12 +458,11 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
 
           return (
             <>
-              {/* Centered Floating Toolbar */}
+              {/* Zoom Controls - Bottom Right */}
               <div style={{
                 position: 'fixed',
-                top: '24px',
-                left: '50%',
-                transform: 'translateX(-50%)',
+                bottom: '24px',
+                right: '24px',
                 zIndex: 50
               }}>
                 <div style={{
@@ -471,12 +470,12 @@ export default function CanvasFoundation({ children, onCanvasClick, onTransformC
                   alignItems: 'center',
                   gap: '4px',
                   padding: '8px 12px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderRadius: '16px',
-                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.06)',
-                  border: '1px solid rgba(229, 231, 235, 0.5)'
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  border: '1px solid rgba(0, 0, 0, 0.05)'
                 }}>
                   {/* Zoom Controls */}
                   <button

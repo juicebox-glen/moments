@@ -371,10 +371,12 @@ function DraggableItem({
   const selectedId = selectedIds.length > 0 ? selectedIds[0] : null;
   const opacity = selectedId === null || selectedId === item.id ? 1.0 : 0.6;
 
-  // Transitions (polished with smooth resize animation)
+  // Transitions (polished with smooth resize animation - Apple-like with bouncy spring)
+  // Use same timing for transform (position) and width/height to keep center perfectly fixed during resize
+  const resizeTiming = '0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
   const transition = isActive
     ? 'none'
-    : `transform 0.15s ease-out, ${isPhoto ? 'filter' : 'box-shadow'} 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width 0.15s ease-out, height 0.15s ease-out`;
+    : `transform ${resizeTiming}, ${isPhoto ? 'filter' : 'box-shadow'} 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width ${resizeTiming}, height ${resizeTiming}`;
 
   // Render as draggable canvas item
   return (
