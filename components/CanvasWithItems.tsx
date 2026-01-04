@@ -301,6 +301,29 @@ export default function CanvasWithItems({
       >
         {({ scale }: { scale: number; positionX: number; positionY: number }) => (
           <>
+            {/* Dark backdrop overlay - appears behind items when something is selected */}
+            {/* Absolute positioning within canvas container, covers entire canvas area */}
+            {/* z-index: 0 ensures it's below all items (items have z-index >= 1 from item.zIndex) */}
+            {selectedId && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: -5000,
+                  left: -5000,
+                  width: '20000px',
+                  height: '20000px',
+                  backgroundColor: 'hsla(220, 30%, 8%, 0.2)', // Reduced from 0.35 to 0.2 for more subtle darkening
+                  backdropFilter: 'blur(2px)',
+                  WebkitBackdropFilter: 'blur(2px)',
+                  zIndex: 0, // Below items (items have z-index >= 1 from item.zIndex), above canvas background
+                  pointerEvents: 'none', // Allow clicks to pass through to canvas/items
+                  transition: 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  opacity: 1,
+                }}
+                onClick={handleCanvasClickWrapper}
+              />
+            )}
+            
             {visibleItems.map((item) => (
             <DraggableItem
               key={item.id}

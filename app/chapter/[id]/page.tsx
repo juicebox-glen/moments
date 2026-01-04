@@ -829,7 +829,7 @@ export default function ChapterPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-screen relative bg-background overflow-hidden">
       <CanvasTopBar 
         chapter={chapter}
       />
@@ -859,7 +859,7 @@ export default function ChapterPage() {
         onAdd={handleEditText}
         initialContent={editingTextItemId ? items.find(i => i.id === editingTextItemId && i.type === 'note')?.content || '' : ''}
       />
-      <div className="flex-1 relative overflow-hidden">
+      <div className="h-full relative overflow-hidden">
         <CanvasWithItems
           initialItems={items}
           onItemsChange={setItemsWithLogging}

@@ -367,16 +367,38 @@ function DraggableItem({
     : 'none';
   const outlineOffset = isSelected || isActive ? '2px' : '0';
 
-  // Opacity: dim unselected items when something is selected
+  // Selection focus effect: darken + blur unselected items when something is selected
   const selectedId = selectedIds.length > 0 ? selectedIds[0] : null;
-  const opacity = selectedId === null || selectedId === item.id ? 1.0 : 0.6;
+  const hasSelection = selectedId !== null;
+  const isUnselectedWithSelection = hasSelection && !isSelected;
+  
+  // Opacity: slightly reduce for darkening effect (was 0.6, now 0.5 for better darkening)
+  const opacity = hasSelection && !isSelected ? 0.5 : 1.0;
+
+  // Build filter string: existing drop-shadow for photos + blur for unselected items
+  let filterValue = 'none';
+  
+  // Add existing drop-shadow for photos (if applicable)
+  if (!isNoShadow && isPhoto && dropShadow) {
+    filterValue = dropShadow;
+  }
+  
+  // Add blur to unselected items when something is selected (creates focus effect)
+  if (isUnselectedWithSelection) {
+    const blurFilter = 'blur(4px)';
+    if (filterValue === 'none') {
+      filterValue = blurFilter;
+    } else {
+      filterValue = `${filterValue} ${blurFilter}`;
+    }
+  }
 
   // Transitions (polished with smooth resize animation - Apple-like with bouncy spring)
-  // Use same timing for transform (position) and width/height to keep center perfectly fixed during resize
+  // Filter transitions smoothly for blur effect
   const resizeTiming = '0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
   const transition = isActive
     ? 'none'
-    : `transform ${resizeTiming}, ${isPhoto ? 'filter' : 'box-shadow'} 0.15s ease, opacity 0.2s ease, outline 0.15s ease, width ${resizeTiming}, height ${resizeTiming}`;
+    : `transform ${resizeTiming}, filter 0.4s cubic-bezier(0.4, 0, 0.2, 1), ${isPhoto ? '' : 'box-shadow 0.15s ease, '}opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), outline 0.15s ease, width ${resizeTiming}, height ${resizeTiming}`;
 
   // Render as draggable canvas item
   return (
@@ -394,7 +416,7 @@ function DraggableItem({
           zIndex: item.zIndex,
           transition,
           boxShadow: isNoShadow ? 'none' : (isPhoto ? 'none' : boxShadow), // No box-shadow for photos, emojis, stickers, GIFs
-          filter: isNoShadow ? 'none' : (isPhoto ? dropShadow : 'none'), // Use drop-shadow for photos only
+          filter: isNoShadow ? 'none' : filterValue, // Includes drop-shadow for photos + blur for unselected items
           outline,
           outlineOffset,
           opacity,

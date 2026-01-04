@@ -8,21 +8,13 @@ interface CanvasTopBarProps {
 }
 
 export default function CanvasTopBar({ chapter }: CanvasTopBarProps) {
-  const formattedDate = chapter.date
-    ? new Date(chapter.date).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : null;
-
   return (
-    <div className="border-b border-grid bg-background">
+    <div className="absolute top-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-start gap-4">
+        <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="mt-1 p-2 -ml-2 rounded-lg hover:bg-grid transition-colors flex-shrink-0"
+            className="p-2 -ml-2 rounded-lg hover:bg-grid transition-colors flex-shrink-0"
             aria-label="Back to calendar"
           >
             <svg
@@ -43,12 +35,9 @@ export default function CanvasTopBar({ chapter }: CanvasTopBarProps) {
           </Link>
           
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-medium text-foreground mb-1">
+            <h1 className="text-2xl font-medium text-foreground">
               {chapter.title}
             </h1>
-            {formattedDate && (
-              <p className="text-sm text-foreground/60">{formattedDate}</p>
-            )}
           </div>
         </div>
       </div>
